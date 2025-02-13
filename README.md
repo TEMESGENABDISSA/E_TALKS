@@ -1,6 +1,6 @@
 # Advanced Telegram Bot Management System (Progress: 75%)
 
-A hands-on Python learning project focused on building a comprehensive Telegram bot. This project represents my journey in turning ideas into reality through practical coding experience.
+A comprehensive Telegram bot management system built with Python. Features include content moderation, user management, channel operations, and automated messaging. A hands-on learning project showcasing async programming and API integration.
 
 ## 🎯 Project Vision & Learning Journey
 This project started as an idea to explore what's possible with Telegram bots. Instead of just thinking "what if," I decided to build it and learn along the way. It's a practical approach to learning Python while creating something useful.
