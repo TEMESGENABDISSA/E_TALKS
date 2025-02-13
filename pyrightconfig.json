@@ -1,0 +1,12 @@
+{
+    "include": [
+        "emamutalks",
+        "tests"
+    ],
+    "extraPaths": [
+        "."
+    ],
+    "pythonVersion": "3.7",
+    "pythonPlatform": "All",
+    "reportMissingImports": "warning"
+} 

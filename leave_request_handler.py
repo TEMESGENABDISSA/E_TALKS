@@ -78,7 +78,7 @@ class LeaveRequestHandler:
         user_id = str(update.effective_user.id)
         reason = update.message.text
         
-        # Save request
+        
         self.leave_requests[user_id] = {
             'reason': reason,
             'timestamp': datetime.now().isoformat(),
@@ -86,10 +86,10 @@ class LeaveRequestHandler:
         }
         self.save_requests()
         
-        # Notify admins
+        
         await self.notify_admins(update, context, user_id, reason)
         
-        # Confirm to user
+     
         await update.message.reply_text(
             "✅ Leave request submitted!\n\n"
             "• Admin will review your request\n"

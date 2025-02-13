@@ -1,0 +1,11 @@
+pyproject.toml
+setup.py
+emamutalks/__init__.py
+emamutalks.egg-info/PKG-INFO
+emamutalks.egg-info/SOURCES.txt
+emamutalks.egg-info/dependency_links.txt
+emamutalks.egg-info/top_level.txt
+tests/__init__.py
+tests/conftest.py
+tests/test_buttons.py
+tests/test_buttons_sync.py

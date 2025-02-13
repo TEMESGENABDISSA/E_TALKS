@@ -103,4 +103,38 @@ class ContentSharing:
             )
             
         except Exception as e:
-            self.logger.error(f"Error sending organized list: {e}") 
+            self.logger.error(f"Error sending organized list: {e}")
+
+CHANNEL_LINKS = {
+    "main": "#",
+    "backup": "#",
+    "announcements": "#"
+}
+
+GROUP_LINKS = {
+    "main": "#",
+    "support": "#",
+    "community": "#"
+}
+
+WELCOME_MESSAGE = """
+Welcome to #'s Channel!
+Join us for amazing content about #.
+"""
+
+ABOUT_MESSAGE = """
+About ##:
+Expert in #
+Contact: #
+"""
+
+CHANNEL_INFO = {
+    "name": "#",
+    "username": "@#",
+    "description": "Welcome to #",
+    "links": {
+        "main": "https://t.me/#",
+        "chat": "https://t.me/#",
+        "youtube": "https://youtube.com/#"
+    }
+} 

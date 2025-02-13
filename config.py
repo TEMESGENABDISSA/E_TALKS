@@ -3,7 +3,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 import sys
 import codecs
-from telegram import InlineKeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+import logging
 
 load_dotenv()
 
@@ -11,40 +12,61 @@ load_dotenv()
 sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
 
 # Telegram Bot Configuration
-BOT_TOKEN = "7093719129:AAE3ny7_m5SoEpXWsZs-MlI2tEsXVYR9b4Q"  # Replace with your bot token
-PRIVATE_CHANNEL_ID = os.getenv('PRIVATE_CHANNEL_ID')
-ADMIN_ID = os.getenv('ADMIN_ID')
+BOT_TOKEN = "#"  # Replace with your bot token
+PRIVATE_CHANNEL_ID = "#"  # Replace with your private channel ID
+ADMIN_ID = "#"  # Replace with your admin ID
 
 # Bot Status
 IS_ADMIN_ONLINE = False
 
 # Social Media Links
 SOCIAL_LINKS = {
-    "LinkedIn": "https://www.linkedin.com/in/temesgen-abdissa-06315a25a/",
-    "Channel": "https://t.me/EmamuTalks",
-    "Group": "https://t.me/EmamuTalkschat",
-    "YouTube": "https://www.youtube.com/@EMAMUTALKS",
-    "Gmail": "temesgenabdissa2@gmail.com"
+    "LinkedIn": "https://linkedin.com/in/#",
+    "Channel": "https://t.me/#",
+    "Group": "https://t.me/#",
+    "YouTube": "https://youtube.com/#",
+    "Gmail": "#@gmail.com"
 }
 
-# Function to create valid inline keyboard buttons
 def get_social_links_keyboard():
+    """Create keyboard markup for social links"""
     keyboard = []
+    row = []
+    
     for platform, url in SOCIAL_LINKS.items():
+        if len(row) == 2:  # Max 2 buttons per row
+            keyboard.append(row)
+            row = []
+            
         if platform == "Gmail":
-            url = f"mailto:{url}"
-        keyboard.append([InlineKeyboardButton(
-            text=f"{'📧' if platform == 'Gmail' else '🔗'} {platform}",
-            url=url
-        )])
-    return keyboard
+            # Special handling for email
+            button = InlineKeyboardButton(
+                f"{platform} 📧", 
+                callback_data=f"email_{url}"
+            )
+        else:
+            button = InlineKeyboardButton(
+                f"{platform} 🔗", 
+                url=url
+            )
+        row.append(button)
+        
+    if row:  # Add remaining buttons
+        keyboard.append(row)
+        
+    # Add back button
+    keyboard.append([
+        InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")
+    ])
+    
+    return InlineKeyboardMarkup(keyboard)
 
 # Auto reply message
 OFFLINE_MESSAGE = (
     "\n\n\n\nThanks for your message! I will reach out to you soon.\n\n\n\n"
     "In the meantime, feel free to connect with us:\n\n"
-    "📢 Telegram Channel: https://t.me/EmamuTalks\n"
-    "💭 Telegram Group: https://t.me/EmamuTalkschat\n \n\n"
+    "📢 Telegram Channel: https://t.me/#\n"
+    "💭 Telegram Group: https://t.me/#\n \n\n"
     " \n\nStay tuned for more updates! 🌟"
 )
 
@@ -60,32 +82,17 @@ INAPPROPRIATE_CONTENT_MESSAGE = "Your message has been flagged as inappropriate.
 BASE_DIR = Path(__file__).resolve().parent
 
 # Add profile information
-ABOUT_TEMESGEN = {
-    "name": "Temesgen Abdissa",
-    "profession": "Software Engineer & Full Stack Developer",
-    "passion": "Playing music instruments (Guitar, Keyboard)",
-    "role": "CEO of EMAMUTALKS & EMAMUTECH_SOLUTIONS",
-    "photo_url": str(BASE_DIR / "assets" / "1713112726771.jpeg"),  # Fixed path format
-    "contact_info": {
-        "linkedin": "https://www.linkedin.com/in/temesgen-abdissa-06315a25a/",
-        "telegram": "https://t.me/EmamuTalks",
-        "email": "temesgenabdissa2@gmail.com"
-    },
-    "services": [
-        "💻 SOFTWARE DEVELOPMENT",
-        "📱 MOBILE APPLICATION",
-        "🌐 WEBSITE DEVELOPMENT",
-        "📢 SOCIAL MEDIA MANAGEMENT",
-        "⚙️ SYSTEM DESIGN",
-        "🎨 GRAPHICS",
-        "🎬 VIDEO EDITING"
-    ]
+ABOUT_PERSON = {
+    "name": "##",  # Changed from "Temesgen Abdissa"
+    "profession": "#",
+    "bio": "#",
+    "expertise": "#"
 }
 
 # Group Migration Settings
-SOURCE_GROUP_ID = "your_source_group_id"
-TARGET_GROUP_ID = "-1002271109283"  # Your target group ID
-CHANNEL_INVITE_LINK = "https://t.me/EmamuTalks"
+SOURCE_GROUP_ID = "#"  # Replace with your source group ID
+TARGET_GROUP_ID = "#"  # Replace with your target group ID
+CHANNEL_INVITE_LINK = "https://t.me/#"
 
 # Rate limiting settings
 ADD_MEMBER_DELAY = 5  # seconds between each add
@@ -104,22 +111,22 @@ Do you consent?
 """
 
 # Channel and Group Settings
-REQUIRED_CHANNEL_ID = "-1002173313849"     # Your channel ID
-PRIVATE_CHANNEL_ID = "-1002384506961"  # Private logging channel ID
-GROUP_ID = "-1002271109283"  # Main group ID
+REQUIRED_CHANNEL_ID = "#"  # Replace with your channel ID
+PRIVATE_CHANNEL_ID = "#"  # Replace with your private channel ID
+GROUP_ID = "#"  # Replace with your group ID
 
 # Multiple Admin IDs
 ADMIN_IDS = [
-    "8087826607",  # Admin 1 ID
-    "7305621335",  # Admin 2 ID
-    " 8174856536",  # Admin 3 ID
-    "8087826607"   # Admin 4 ID
+    "#",  # Admin 1 ID
+    "#",  # Admin 2 ID
+    "#",  # Admin 3 ID
+    "#"   # Admin 4 ID
 ]
 
 # Messages
 JOIN_REQUEST_MESSAGE = (
     "👋 Welcome! To continue, please:\n"
-    "1️⃣ Join our channel: @EmamuTalks\n"
+    "1️⃣ Join our channel: @#\n"
     "2️⃣ Click 'Check Membership' below"
 )
 
@@ -131,7 +138,7 @@ LEAVE_REQUEST_MESSAGE = (
 )
 
 # Invitation links
-GROUP_INVITE_LINK = "https://t.me/EmamuTalkschat"  # Get from group settings
+GROUP_INVITE_LINK = "https://t.me/#"  # Get from group settings
 
 # Feature flags
 REQUIRE_CHANNEL_JOIN = True
@@ -139,7 +146,7 @@ REQUIRE_JOIN_REQUEST = True
 TRACK_LEAVE_REQUESTS = True
 
 # Add these to your existing config.py
-REQUIRED_CHANNEL_USERNAME = "@EmamuTalks"  # Your channel username
+REQUIRED_CHANNEL_USERNAME = "@#"  # Your channel username
 
 JOIN_MESSAGES = {
     "NOT_MEMBER": (
@@ -156,9 +163,9 @@ JOIN_MESSAGES = {
 JOIN_REQUEST_SETTINGS = {
     "ENABLED": True,
     "WELCOME_MESSAGE": (
-        "👋 Welcome to EmamuTalks!\n\n"
+        "👋 Welcome to #!\n\n"
         "Before you can message the admin, please:\n"
-        "1️⃣ Join our channel: @EmamuTalks\n"
+        "1️⃣ Join our channel: @#\n"
         "2️⃣ Submit a brief introduction\n"
         "3️⃣ Wait for approval\n\n"
         "This helps us maintain a quality community!"
@@ -245,7 +252,7 @@ BUTTON_SETTINGS = {
 
 # Menu Configurations
 MENU_MESSAGES = {
-    'MAIN_MENU': "🌟 Welcome to EmamuTalks! What would you like to do?",
+    'MAIN_MENU': "🌟 Welcome to #! What would you like to do?",
     'SOCIAL_MENU': "Choose a social media platform:",
     'CHANNEL_MENU': "Join our channels:",
     'HELP_MENU': "How can we help you?"
@@ -304,7 +311,7 @@ BANNED_IMAGE_CLASSES = [
 ]
 
 # Admin Channel for Violations
-ADMIN_CHANNEL_ID = "your_admin_channel_id"
+ADMIN_CHANNEL_ID = "your_admin_channel_id_here"  # Replace with your admin channel ID
 
 # Moderation Messages
 MODERATION_MESSAGES = {
@@ -321,29 +328,27 @@ MODERATION_MESSAGES = {
 
 # Channel Requirements
 REQUIRED_CHANNELS = [
-    "-1002173313849",  # Main channel ID
-    "-1002173313849"   # Secondary channel ID
+    "#",  # Main channel ID
+    "#"   # Secondary channel ID
 ]
 
 CHANNEL_INFO = {
-    "-1002173313849": {  # Main channel ID (starts with -100)
-        "name": "EMAMUTALKS",
-        "invite_link": "https://t.me/EmamuTalks"  # Get from channel settings
-    },
-    "-1002173313849": {  # Secondary channel ID if any
-        "name": "EMAMUTALKS",
-        "invite_link": "https://t.me/EmamuTalks"
+    "main": {
+        "id": "#",
+        "name": "#",
+        "username": "#",
+        "invite_link": "#"
     }
 }
 
 # Private Channel
-PRIVATE_CHANNEL_ID = "-1002384506961"  # Private logging channel ID
+PRIVATE_CHANNEL_ID = "#"  # Private logging channel ID
 
 # Multi-User Support
 USER_TOKENS = {
-    "user1": "BOT_TOKEN_1",
-    "user2": "BOT_TOKEN_2",
-    "user3": "BOT_TOKEN_3"
+    "user1": "#",  # Replace with actual bot token
+    "user2": "#",  # Replace with actual bot token
+    "user3": "#"   # Replace with actual bot token
 }
 
 # Messages
@@ -418,36 +423,29 @@ PRIVACY_SETTINGS = {
 }
 
 # Your Channel and Group Settings
-CHANNEL_INFO = {
-    "-1002173313849": {  # Replace with your channel ID
-        "name": "Your Channel Name",
-        "invite_link": "https://t.me/YourChannel"
-    }
-}
-
-# Your Group Settings
 GROUP_INFO = {
-    "-1002271109283": {  # Replace with your group ID
-        "name": "EMAMU DISCUSSION",
-        "invite_link": "https://t.me/YourGroup"
+    "main": {
+        "id": "#",
+        "name": "#",
+        "invite_link": "#"
     }
 }
 
 # Required Channel for Membership
 REQUIRED_CHANNELS = [
-    "-1002173313849"  # Your channel ID
+    "#"  # Replace with your channel ID
 ]
 
 # Private Channel for Forwarded Messages
-PRIVATE_CHANNEL_ID = "-1002384506961"  # Your private channel ID
+PRIVATE_CHANNEL_ID = "#"  # Replace with your private channel ID
 
 # Admin Settings
 ADMIN_IDS = [
-    "8087826607"  # Your Telegram user ID
+    "#"  # Replace with your Telegram user ID
 ]
 
 # Bot Token
-BOT_TOKEN = "7093719129:AAE3ny7_m5SoEpXWsZs-MlI2tEsXVYR9b4Q"  # Replace with your bot token
+BOT_TOKEN = "#"  # Replace with your bot token
 
 # Add these membership settings to your config.py
 
@@ -483,16 +481,15 @@ MEMBERSHIP_MESSAGES = {
 
 # Admin IDs (replace with actual admin IDs)
 ADMIN_IDS = [
-
-     "8087826607",  # Admin 1 ID
-    "7305621335",  # Admin 2 ID
-    " 8174856536",  # Admin 3 ID
-    "8087826607"   # Admin 4 ID
+     "#",  # Admin 1 ID
+    "#",  # Admin 2 ID
+    "#",  # Admin 3 ID
+    "#"   # Admin 4 ID
 ]
 
 # Group Settings
-TARGET_GROUP_ID = "-1002271109283"  # Your target group ID
-GROUP_INVITE_LINK = "https://t.me/EmamuTalkschat"
+TARGET_GROUP_ID = "#"  # Replace with your target group ID
+GROUP_INVITE_LINK = "https://t.me/#"
 
 # Contact Collection Settings
 CONTACT_SETTINGS = {
@@ -557,3 +554,95 @@ LOG_MESSAGES = {
         "Can now communicate with admins"
     )
 }
+
+# Base directory of the project
+BASE_DIR = Path(__file__).resolve().parent
+
+# File paths
+DATA_DIR = BASE_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)  # Create data directory if it doesn't exist
+
+# File paths for JSON storage
+CONSENTS_FILE = DATA_DIR / "user_consents.json"
+STATES_FILE = DATA_DIR / "user_states.json"
+MESSAGES_FILE = DATA_DIR / "forwarded_messages.json"
+
+# Bot configuration
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Make sure to set this in your environment
+ADMIN_IDS = [int(id) for id in os.getenv("ADMIN_IDS", "").split(",") if id]
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+
+# Consent configuration
+CONSENT_VERSION = "1.0"
+CONSENT_MESSAGES = {
+    "data_processing": (
+        "To use this bot, we need your consent to process and store your data. "
+        "This includes your messages and user information. Do you agree?"
+    ),
+    "channel_join": (
+        "To continue using this bot, you need to join our channel. "
+        "Do you agree to join?"
+    )
+}
+
+CONSENT_RESPONSES = {
+    "yes": "Thank you for your consent! You can now use the bot.",
+    "no": "Without consent, we cannot provide our services. "
+           "You can try again later using /start"
+}
+
+# Channel configuration
+CHANNEL_INFO = {
+    "main": {
+        "id": CHANNEL_ID,
+        "name": "#",
+        "username": "#",
+        "invite_link": "#"
+    }
+}
+
+REQUIRED_CHANNELS = ["main"]
+
+# Initialize logging
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_DIR / "bot.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# Bot tokens configuration
+BOT_TOKENS = {
+    "user1": os.getenv("BOT_TOKEN_1"),
+    "user2": os.getenv("BOT_TOKEN_2"),
+    "user3": os.getenv("BOT_TOKEN_3")
+}
+
+# Validate tokens
+def validate_tokens():
+    invalid_tokens = []
+    for user, token in BOT_TOKENS.items():
+        if not token or len(token.split(':')) != 2:
+            invalid_tokens.append(user)
+    return invalid_tokens
+
+WELCOME_MESSAGE = """
+Welcome to #! 
+Join our community:
+Channel: @#
+Group: @#
+YouTube: #
+"""
+
+ABOUT_CHANNEL = """
+# - Your Source for Tech Knowledge
+Join us on:
+📢 Channel: @#
+💭 Group: @#
+📺 YouTube: #
+"""

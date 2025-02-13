@@ -1,1 +1,23 @@
-# This file will be created automatically when the bot starts 
+# This file will be created automatically when the bot starts 2025-02-13 20:35:55,386 - content_moderator - WARNING - NudeDetector not available: [ONNXRuntimeError] : 7 : INVALID_PROTOBUF : Load model from C:\Users\temes\.NudeNet/detector_v2_default_checkpoint.onnx failed:Protobuf parsing failed.. Will skip image moderation.
+2025-02-13 20:35:56,792 - session_manager - INFO - Initialized session for user user1
+2025-02-13 20:35:57,670 - session_manager - INFO - Initialized session for user user2
+2025-02-13 20:35:58,540 - session_manager - INFO - Initialized session for user user3
+2025-02-13 20:35:59,105 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botBOT_TOKEN_1/getMe "HTTP/1.1 404 Not Found"
+2025-02-13 20:35:59,105 - session_manager - ERROR - Session start error for user user1: The token `BOT_TOKEN_1` was rejected by the server.
+2025-02-13 20:35:59,468 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botBOT_TOKEN_2/getMe "HTTP/1.1 404 Not Found"
+2025-02-13 20:35:59,472 - session_manager - ERROR - Session start error for user user2: The token `BOT_TOKEN_2` was rejected by the server.
+2025-02-13 20:35:59,855 - httpx - INFO - HTTP Request: POST https://api.telegram.org/botBOT_TOKEN_3/getMe "HTTP/1.1 404 Not Found"
+2025-02-13 20:35:59,855 - session_manager - ERROR - Session start error for user user3: The token `BOT_TOKEN_3` was rejected by the server.
+2025-02-13 20:51:49,706 - content_moderator - INFO - NudeDetector initialized successfully
+2025-02-13 20:51:51,587 - session_manager - INFO - Initialized session for user user1
+2025-02-13 20:51:52,731 - session_manager - INFO - Initialized session for user user2
+2025-02-13 20:51:53,890 - session_manager - INFO - Initialized session for user user3
+2025-02-13 20:53:04,879 - content_moderator - INFO - NudeDetector initialized successfully
+2025-02-13 20:53:06,746 - session_manager - INFO - Initialized session for user user1
+2025-02-13 20:53:07,953 - session_manager - INFO - Initialized session for user user2
+2025-02-13 20:53:09,107 - session_manager - INFO - Initialized session for user user3
+2025-02-13 20:57:18,019 - content_moderator - INFO - NudeDetector initialized successfully
+2025-02-13 20:57:19,966 - session_manager - INFO - Initialized session for user user1
+2025-02-13 20:57:21,113 - session_manager - INFO - Initialized session for user user2
+2025-02-13 20:57:22,248 - session_manager - INFO - Initialized session for user user3
+2025-02-13 20:57:23,046 - __main__ - CRITICAL - Bot startup failed: You must pass the token you received from https://t.me/Botfather!

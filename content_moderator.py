@@ -1,11 +1,11 @@
 import re
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup
 import requests
 from PIL import Image
 from io import BytesIO
 import logging
-from nudenet import NudeClassifier, NudeDetector
+from nudenet import NudeDetector
 import spacy
 from telegram.ext import ContextTypes
 from telegram.error import TelegramError
@@ -13,17 +13,32 @@ import asyncio
 import aiohttp
 import io
 import numpy as np
-from profanity_check import predict_prob, predict
+import os
+from better_profanity import profanity
 import config
+from pathlib import Path
 
 class ContentModerator:
     def __init__(self):
-        # Initialize NudeNet classifier
-        self.nude_classifier = NudeClassifier()
-        self.nude_detector = NudeDetector()
+        self.logger = logging.getLogger(__name__)
+        self.banned_words = set()
+        self.max_message_length = 1000
+        self.nude_detector = None
+        
+        # Try to initialize nude detector if available
+        try:
+            from nudenet import NudeDetector
+            self.nude_detector = NudeDetector()
+            self.logger.info("NudeDetector initialized successfully")
+        except Exception as e:
+            self.logger.warning(f"NudeDetector initialization failed: {e}")
+            self.logger.info("Running without image moderation")
         
         # Load spaCy model for text analysis
         self.nlp = spacy.load("en_core_web_sm")
+        
+        # Initialize profanity filter
+        profanity.load_censor_words()
         
         # Enhanced patterns
         self.inappropriate_patterns = [
@@ -40,25 +55,41 @@ class ContentModerator:
             r'(?i)(crypto|bitcoin|eth|investment|profit)',
         ]
 
-        # Initialize logging
-        self.logger = logging.getLogger(__name__)
         self.blocked_users = set()
         self.load_blocked_users()
 
     def load_blocked_users(self):
         """Load previously blocked users"""
         try:
-            with open('data/blocked_users.txt', 'r') as f:
-                self.blocked_users = set(int(line.strip()) for line in f)
+            with open('data/blocked_users.txt', 'r', encoding='utf-8') as f:
+                self.blocked_users = set()
+                for line in f:
+                    try:
+                        user_id = line.strip()
+                        if user_id:  # Skip empty lines
+                            self.blocked_users.add(int(user_id))
+                    except ValueError:
+                        self.logger.warning(f"Invalid user ID in blocked_users.txt: {line.strip()}")
         except FileNotFoundError:
+            self.blocked_users = set()
+            # Create the file if it doesn't exist
+            os.makedirs('data', exist_ok=True)
+            with open('data/blocked_users.txt', 'w', encoding='utf-8') as f:
+                pass
+        except Exception as e:
+            self.logger.error(f"Error loading blocked users: {e}")
             self.blocked_users = set()
             
     def save_blocked_users(self):
         """Save blocked users to file"""
-        with open('data/blocked_users.txt', 'w') as f:
-            for user_id in self.blocked_users:
-                f.write(f"{user_id}\n")
-
+        try:
+            os.makedirs('data', exist_ok=True)
+            with open('data/blocked_users.txt', 'w', encoding='utf-8') as f:
+                for user_id in self.blocked_users:
+                    f.write(f"{user_id}\n")
+        except Exception as e:
+            self.logger.error(f"Error saving blocked users: {e}")
+            
     async def analyze_media(self, message: Message) -> Tuple[bool, str]:
         """Analyze media content for inappropriate material"""
         try:
@@ -67,8 +98,8 @@ class ContentModerator:
                 photo_path = await file.download_to_memory()
                 
                 # Analyze with NudeNet
-                result = self.nude_classifier.classify(photo_path)
-                if result and result[0]['unsafe'] > 0.7:  # 70% threshold
+                result = self.nude_detector.detect(photo_path, min_prob=0.6)
+                if len(result) > 0:  # If any inappropriate content is detected
                     return True, "inappropriate_media"
 
             elif message.video or message.animation:
@@ -81,8 +112,8 @@ class ContentModerator:
                 if thumb:
                     file = await thumb.get_file()
                     thumb_path = await file.download_to_memory()
-                    result = self.nude_classifier.classify(thumb_path)
-                    if result and result[0]['unsafe'] > 0.7:
+                    result = self.nude_detector.detect(thumb_path, min_prob=0.6)
+                    if len(result) > 0:  # If any inappropriate content is detected
                         return True, "inappropriate_media"
 
         except Exception as e:
@@ -159,17 +190,17 @@ class ContentModerator:
     async def check_text_content(self, text: str) -> tuple:
         """Check text for inappropriate content"""
         try:
-            # Check profanity probability
-            prob = predict_prob([text])[0]
+            # Check for profanity
+            if profanity.contains_profanity(text):
+                return True, "Text contains profanity"
             
             # Check against banned words
             contains_banned = any(word in text.lower() 
                                 for word in config.BANNED_WORDS)
             
-            is_inappropriate = prob > config.PROFANITY_THRESHOLD or contains_banned
+            is_inappropriate = contains_banned
             
             return is_inappropriate, {
-                'probability': float(prob),
                 'contains_banned_words': contains_banned,
                 'text': text[:100] + '...' if len(text) > 100 else text
             }
@@ -178,30 +209,33 @@ class ContentModerator:
             self.logger.error(f"Text analysis error: {e}")
             return False, {'error': str(e)}
             
-    async def check_image_content(self, image_file) -> tuple:
+    async def check_image_content(self, image_data: Union[str, bytes]) -> Tuple[bool, dict]:
         """Check image for inappropriate content"""
         try:
-            # Convert to PIL Image
-            image = Image.open(image_file)
+            # Convert image data to PIL Image if it's bytes
+            if isinstance(image_data, bytes):
+                image = Image.open(BytesIO(image_data))
+                # Convert to RGB if necessary
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                # Save to temporary buffer
+                buffer = BytesIO()
+                image.save(buffer, format='JPEG')
+                image_data = buffer.getvalue()
             
-            # Run NudeNet detection
-            result = self.nude_detector.detect(image)
+            # Detect nudity
+            result = self.nude_detector.detect(image_data, min_prob=0.6)
             
-            # Check if any inappropriate classes are detected
-            is_inappropriate = any(
-                pred['class'] in config.BANNED_IMAGE_CLASSES and 
-                pred['score'] > config.IMAGE_THRESHOLD 
-                for pred in result
-            )
+            is_inappropriate = len(result) > 0  # If any inappropriate content is detected
             
             return is_inappropriate, {
                 'detections': result,
-                'image_size': image.size
+                'message': 'Inappropriate content detected' if is_inappropriate else 'No inappropriate content detected'
             }
             
         except Exception as e:
-            self.logger.error(f"Image analysis error: {e}")
-            return False, {'error': str(e)}
+            logging.error(f"Error checking image content: {str(e)}")
+            return True, {'error': str(e)}  # Fail closed - treat errors as inappropriate content
             
     async def forward_to_admin(self, 
                              update: Update, 
@@ -334,176 +368,119 @@ class ContentModerator:
             self.logger.error(f"Moderation error: {e}")
             return False
 
-    async def check_content(self, 
-                          update: Update, 
-                          context: ContextTypes.DEFAULT_TYPE) -> bool:
+    async def check_content(self, update, context) -> Tuple[bool, str]:
         """Check if content is appropriate"""
         try:
-            message = update.message
-            
             # Check text content
-            if message.text:
-                if not await self.check_text(message.text):
-                    await self.handle_inappropriate_content(update, context)
-                    return False
-                    
-            # Check media content
-            if message.photo or message.video or message.document:
-                if not await self.check_media(message):
-                    await self.handle_inappropriate_content(update, context)
-                    return False
-                    
-            # Check links
-            if message.entities:
-                if not await self.check_links(message):
-                    await self.handle_inappropriate_content(update, context)
-                    return False
-                    
-            return True
+            if update.message.text:
+                return await self.check_text(update.message.text)
+                
+            # Check image content
+            elif update.message.photo and self.nude_detector:
+                return await self.check_image(update.message.photo[-1], context)
+                
+            # Allow other content types
+            return True, ""
             
         except Exception as e:
-            self.logger.error(f"Error checking content: {e}")
-            return False
-            
-    async def check_text(self, text: str) -> bool:
-        """Check text content for inappropriate content"""
-        try:
-            # Check against blocked patterns
-            for pattern in self.blocked_patterns:
-                if re.search(pattern, text):
-                    return False
-                    
-            # Check for profanity
-            if predict([text])[0] == 1:
-                return False
-                
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error checking text: {e}")
-            return False
-            
-    async def check_media(self, message) -> bool:
-        """Check media content"""
-        try:
-            if message.photo:
-                file = await message.photo[-1].get_file()
-                return await self.check_image(file)
-                
-            if message.video:
-                # Implement video checking logic
-                return True  # Placeholder
-                
-            if message.document:
-                # Check document type and content
-                return await self.check_document(message.document)
-                
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error checking media: {e}")
-            return False
-            
-    async def check_image(self, file) -> bool:
-        """Check image content"""
-        try:
-            # Download image
-            file_path = await file.download_to_memory()
-            
-            # Check for inappropriate content
-            result = self.nude_classifier.classify(file_path)
-            
-            # If unsafe content detected
-            if any(score > 0.7 for score in result.values()):
-                return False
-                
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error checking image: {e}")
-            return False
-            
-    async def handle_inappropriate_content(self, 
-                                        update: Update, 
-                                        context: ContextTypes.DEFAULT_TYPE):
-        """Handle inappropriate content"""
-        try:
-            # Delete message if possible
-            await update.message.delete()
-            
-            # Check if user is channel member
-            is_member = await self.check_channel_membership(context, update.effective_user.id)
-            
-            if not is_member:
-                keyboard = [
-                    [
-                        InlineKeyboardButton(
-                            "Join Channel 📢",
-                            url=config.CHANNEL_INFO[config.REQUIRED_CHANNELS[0]]['invite_link']
-                        )
-                    ]
-                ]
-                
-                await update.message.reply_text(
-                    "⚠️ Your message contains restricted content.\n"
-                    "Please join our channel to share content.",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-            else:
-                await update.message.reply_text(
-                    "⚠️ Your message was removed due to inappropriate content.\n"
-                    "Please review our content guidelines."
-                )
-                
-        except Exception as e:
-            self.logger.error(f"Error handling inappropriate content: {e}")
+            self.logger.error(f"Error in content check: {e}")
+            return True, ""  # Allow content if check fails
 
-    async def check_document(self, document):
-        """Check document content"""
-        # Implement document checking logic
-        return True  # Placeholder
+    async def check_text(self, text: str) -> Tuple[bool, str]:
+        """Check if text content is appropriate"""
+        if not text:
+            return True, ""
 
-    async def check_links(self, message):
-        """Check message links"""
-        # Implement link checking logic
-        return True  # Placeholder
+        # Check message length
+        if len(text) > self.max_message_length:
+            return False, "Message too long"
 
-    async def check_channel_membership(self, context, user_id):
-        """Check if user is a member of the required channels"""
-        # Implement channel membership checking logic
-        return True  # Placeholder
+        # Check for banned words
+        text_lower = text.lower()
+        for word in self.banned_words:
+            if word in text_lower:
+                return False, "Contains inappropriate content"
 
-    async def handle_inappropriate_content(self, 
-                                        update: Update, 
-                                        context: ContextTypes.DEFAULT_TYPE):
-        """Handle inappropriate content"""
+        return True, ""
+
+    async def check_image(self, photo, context) -> Tuple[bool, str]:
+        """Check if image content is appropriate"""
+        if not self.nude_detector:
+            return True, "Image moderation disabled"
+            
         try:
-            # Delete message if possible
-            await update.message.delete()
+            # Download photo
+            file = await context.bot.get_file(photo.file_id)
+            photo_path = Path(f"temp_{photo.file_id}.jpg")
+            await file.download_to_drive(photo_path)
+
+            # Check image
+            result = self.nude_detector.detect(str(photo_path))
             
-            # Check if user is channel member
-            is_member = await self.check_channel_membership(context, update.effective_user.id)
-            
-            if not is_member:
-                keyboard = [
-                    [
-                        InlineKeyboardButton(
-                            "Join Channel 📢",
-                            url=config.CHANNEL_INFO[config.REQUIRED_CHANNELS[0]]['invite_link']
-                        )
-                    ]
-                ]
-                
-                await update.message.reply_text(
-                    "⚠️ Your message contains restricted content.\n"
-                    "Please join our channel to share content.",
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
-            else:
-                await update.message.reply_text(
-                    "⚠️ Your message was removed due to inappropriate content.\n"
-                    "Please review our content guidelines."
-                )
-                
+            # Clean up
+            photo_path.unlink(missing_ok=True)
+
+            # Check results
+            if result and any(pred['score'] > 0.6 for pred in result):
+                return False, "Inappropriate image content detected"
+
+            return True, ""
+
         except Exception as e:
-            self.logger.error(f"Error handling inappropriate content: {e}") 
+            self.logger.error(f"Image check error: {e}")
+            return True, "Image check failed"
+        finally:
+            # Ensure cleanup
+            if photo_path.exists():
+                photo_path.unlink()
+
+    def load_banned_words(self, filename: str):
+        """Load banned words from file"""
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                self.banned_words = set(word.strip().lower() for word in f)
+        except Exception as e:
+            self.logger.error(f"Error loading banned words: {e}")
+
+    async def check_message(self, text: str) -> Tuple[bool, str]:
+        """
+        Check if message content is appropriate
+        Returns: (is_appropriate, reason_if_not)
+        """
+        if not text:
+            return False, "Empty message"
+
+        # Check message length
+        if len(text) > self.max_message_length:
+            return False, "Message too long"
+
+        # Check for banned words
+        text_lower = text.lower()
+        for word in self.banned_words:
+            if word in text_lower:
+                return False, "Contains inappropriate content"
+
+        # Check for excessive special characters
+        if len(re.findall(r'[!?]{3,}', text)) > 0:
+            return False, "Contains excessive punctuation"
+
+        # Check for URLs if not allowed
+        if re.search(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', text):
+            return False, "URLs not allowed"
+
+        return True, ""
+
+    async def filter_message(self, text: str) -> str:
+        """Filter inappropriate content from message"""
+        if not text:
+            return text
+
+        filtered_text = text
+        for word in self.banned_words:
+            filtered_text = re.sub(
+                rf'\b{re.escape(word)}\b', 
+                '*' * len(word), 
+                filtered_text, 
+                flags=re.IGNORECASE
+            )
+        return filtered_text 

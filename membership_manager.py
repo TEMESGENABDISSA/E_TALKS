@@ -198,3 +198,10 @@ class MembershipManager:
             f"Decision: {decision}\n"
             f"By: @{query.from_user.username}"
         ) 
+
+DEFAULT_SETTINGS = {
+    "channel_id": "#",
+    "group_id": "#",
+    "admin_channel": "#",
+    "support_contact": "#"
+} 

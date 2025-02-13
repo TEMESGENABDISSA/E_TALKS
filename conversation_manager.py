@@ -3,30 +3,41 @@ from telegram.ext import ContextTypes
 from datetime import datetime, timedelta
 import logging
 import json
+import os
+import threading
 from typing import Dict, Any
 import config
 
 class ConversationManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.user_states: Dict[str, Dict[str, Any]] = {}
+        self.user_states: Dict[str, Any] = {}
+        self.states_file = "user_states.json"
+        self._lock = threading.Lock()  # Add thread safety
         self.load_states()
         
     def load_states(self):
-        """Load conversation states from file"""
+        """Load user states from JSON file with proper error handling"""
         try:
-            with open('data/conversation_states.json', 'r') as f:
-                self.user_states = json.load(f)
-        except FileNotFoundError:
+            if os.path.exists(self.states_file) and os.path.getsize(self.states_file) > 0:
+                with open(self.states_file, 'r', encoding='utf-8') as f:
+                    self.user_states = json.load(f)
+            else:
+                self.user_states = {}
+                self.save_states()
+        except (json.JSONDecodeError, IOError) as e:
+            self.logger.error(f"Error loading states: {e}")
+            self.user_states = {}
             self.save_states()
             
     def save_states(self):
-        """Save conversation states to file"""
-        try:
-            with open('data/conversation_states.json', 'w') as f:
-                json.dump(self.user_states, f, indent=4)
-        except Exception as e:
-            self.logger.error(f"Error saving states: {e}")
+        """Thread-safe save of user states"""
+        with self._lock:
+            try:
+                with open(self.states_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.user_states, f, indent=4, ensure_ascii=False)
+            except IOError as e:
+                self.logger.error(f"Error saving states: {e}")
             
     async def handle_message(self, 
                            update: Update, 
@@ -110,18 +121,16 @@ class ConversationManager:
                 self.user_states[str(update.effective_user.id)]['triggers_used'].append(trigger)
                 break
         
-    def get_user_state(self, user_id: int) -> dict:
-        """Get or create user state"""
-        str_id = str(user_id)
-        if str_id not in self.user_states:
-            self.user_states[str_id] = {
-                'message_count': 0,
-                'last_message': None,
-                'first_contact': datetime.now().isoformat(),
-                'triggers_hit': set(),
-                'last_auto_reply': None
+    def get_user_state(self, user_id: int) -> Dict[str, Any]:
+        """Get user state with initialization if needed"""
+        user_id_str = str(user_id)
+        if user_id_str not in self.user_states:
+            self.user_states[user_id_str] = {
+                'state': None,
+                'data': {}
             }
-        return self.user_states[str_id]
+            self.save_states()
+        return self.user_states[user_id_str]
         
     async def process_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         """Process incoming message and determine response type"""
@@ -177,4 +186,14 @@ class ConversationManager:
             
         last_time = datetime.fromisoformat(last_reply)
         time_gap = datetime.now() - last_time
-        return time_gap > timedelta(hours=min_gap_hours) 
+        return time_gap > timedelta(hours=min_gap_hours)
+
+    def update_user_state(self, user_id: int, state: str, data: Dict[str, Any] = None):
+        """Update user state with thread safety"""
+        with self._lock:
+            user_id_str = str(user_id)
+            self.user_states[user_id_str] = {
+                'state': state,
+                'data': data or {}
+            }
+            self.save_states() 

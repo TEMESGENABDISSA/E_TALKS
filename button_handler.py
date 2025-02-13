@@ -13,12 +13,13 @@ class ButtonHandler:
             'check_membership': self.handle_check_membership,
             'contact_admin': self.handle_contact_admin,
             'help': self.handle_help,
-            'approve_leave': self.handle_approve_leave,
-            'deny_leave': self.handle_deny_leave
+            'main_menu': self.handle_main_menu,
+            'social_links': self.handle_social_links,
+            'email': self.handle_email_button
         }
         
     async def create_menu(self, title: str, buttons: list) -> InlineKeyboardMarkup:
-        """Create a menu with working buttons"""
+        """Create a menu with working buttons arranged in rows of two."""
         keyboard = []
         row = []
         
@@ -312,4 +313,109 @@ class ButtonHandler:
             
         except Exception as e:
             self.logger.error(f"Error updating menu: {e}")
-            return False 
+            return False
+
+    async def handle_join_channel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle join channel button callback"""
+        try:
+            query = update.callback_query
+            await query.answer()
+            
+            # Create keyboard with join button
+            keyboard = [
+                [InlineKeyboardButton("Join Channel 📢", url=config.CHANNEL_INFO[config.REQUIRED_CHANNELS[0]]['invite_link'])],
+                [InlineKeyboardButton("Check Membership ✅", callback_data="check_membership")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(
+                text="Please join our channel to continue:",
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_join_channel: {e}") 
+
+    async def handle_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle main menu button callback"""
+        query = update.callback_query
+        try:
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "Join Channel 📢", 
+                        url=config.CHANNEL_INFO[config.REQUIRED_CHANNELS[0]]['invite_link']
+                    ),
+                    InlineKeyboardButton(
+                        "Check Membership ✅", 
+                        callback_data="check_membership"
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        "Contact Admin 📩", 
+                        callback_data="contact_admin"
+                    ),
+                    InlineKeyboardButton(
+                        "Help ℹ️", 
+                        callback_data="help"
+                    )
+                ]
+            ]
+            
+            await query.edit_message_text(
+                "Welcome! Please select an option:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except Exception as e:
+            self.logger.error(f"Error in handle_main_menu: {e}")
+            await query.edit_message_text("❌ Error returning to main menu. Please try /start again.") 
+
+    async def handle_social_links(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle social links button press"""
+        try:
+            query = update.callback_query
+            await query.answer()
+            
+            # Get keyboard markup from config
+            reply_markup = config.get_social_links_keyboard()
+            
+            await query.edit_message_text(
+                text="📱 Connect with us on social media:",
+                reply_markup=reply_markup
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_social_links: {e}")
+            await self.handle_error(update, "Could not load social links")
+
+    async def handle_email_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle email button press"""
+        try:
+            query = update.callback_query
+            await query.answer()
+            
+            email = query.data.split('_')[1]
+            await query.edit_message_text(
+                text=f"📧 Contact us at:\n{email}",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Back", callback_data="social_links")
+                ]])
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in handle_email_button: {e}")
+            await self.handle_error(update, "Could not display email")
+
+    async def handle_error(self, update: Update, message: str):
+        """Handle errors in button callbacks"""
+        try:
+            if update.callback_query:
+                await update.callback_query.edit_message_text(
+                    f"❌ {message}\nPlease try again or contact support.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")
+                    ]])
+                )
+        except Exception as e:
+            self.logger.error(f"Error in handle_error: {e}") 

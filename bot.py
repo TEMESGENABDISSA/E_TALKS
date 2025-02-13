@@ -33,7 +33,8 @@ from content_sharing import ContentSharing
 from subscription_enforcer import SubscriptionEnforcer
 
 # Load environment variables
-load_dotenv()
+env_path = Path('.') / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Import config module
 try:
@@ -61,7 +62,15 @@ logging.getLogger('telegram.ext').setLevel(logging.INFO)
 # Global variables
 is_admin_online = False
 user_manager = UserManager()
-content_moderator = ContentModerator()
+
+# Initialize content moderation with fallback
+try:
+    content_moderator = ContentModerator()
+except Exception as e:
+    logger.warning(f"Error initializing content moderator: {e}")
+    # Create basic content moderator without image detection
+    content_moderator = ContentModerator()
+
 content_sharing = ContentSharing()
 subscription_enforcer = SubscriptionEnforcer()
 
@@ -183,15 +192,21 @@ async def send_join_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle incoming messages"""
     try:
-        # Check subscriptions first
-        if not await subscription_enforcer.check_subscriptions(update, context):
-            return
-            
-        # Check content
-        if not await content_moderator.check_content(update, context):
-            return
-            
-        # Process message
+        # Basic content check (always works)
+        if update.message.text:
+            is_appropriate, reason = await content_moderator.check_text(update.message.text)
+            if not is_appropriate:
+                await update.message.reply_text(f"Message not allowed: {reason}")
+                return
+
+        # Image check (only if available)
+        if update.message.photo and content_moderator.nude_detector:
+            is_appropriate, reason = await content_moderator.check_image(update.message.photo[-1], context)
+            if not is_appropriate:
+                await update.message.reply_text(f"Image not allowed: {reason}")
+                return
+
+        # Process message if it passed moderation
         await process_message(update, context)
         
     except Exception as e:
@@ -728,54 +743,68 @@ async def handle_document_message(update: Update, context: ContextTypes.DEFAULT_
         "✅ Document received and processed."
     )
 
-async def main():
-    """Start the bot with multiple sessions"""
+async def recover_from_errors():
+    """Attempt to recover from initialization errors"""
+    logger = logging.getLogger(__name__)
+    
     try:
-        # Initialize all sessions
+        # Check environment variables
+        if not all(token for token in config.BOT_TOKENS.values()):
+            logger.error("Missing bot tokens in environment variables")
+            return False
+            
+        # Validate token format
+        invalid_tokens = config.validate_tokens()
+        if invalid_tokens:
+            logger.error(f"Invalid token format for users: {', '.join(invalid_tokens)}")
+            return False
+            
+        # Initialize session manager
+        session_manager = SessionManager()
         await session_manager.initialize_sessions()
         
-        # Add handlers to each session
-        for application in session_manager.active_sessions.values():
-            application.add_handler(MessageHandler(
-                filters.ALL & ~filters.COMMAND, 
-                handle_message
-            ))
+        if not session_manager.active_sessions:
+            logger.error("No valid sessions could be initialized")
+            return False
             
-        # Add handlers
-        application.add_handler(CommandHandler(
-            "collect_contacts", 
-            handle_collect_contacts
-        ))
-        application.add_handler(CallbackQueryHandler(
-            contact_manager.add_contact_to_group,
-            pattern="^add_contact_"
-        ))
-        application.add_handler(CommandHandler("log_report", generate_log_report))
-            
-        # Add button handler
-        application.add_handler(CallbackQueryHandler(button_handler.handle_callback))
-        
-        # Add command for showing main menu
-        application.add_handler(CommandHandler("start", button_handler.show_main_menu))
-            
-        # Add command for scanning groups
-        application.add_handler(CommandHandler(
-            "scan_groups",
-            content_sharing.scan_groups
-        ))
-            
-        # Start all sessions
-        await session_manager.start_all_sessions()
-        
-        # Keep the bot running
-        await asyncio.Event().wait()
-        
-    except KeyboardInterrupt:
-        # Stop all sessions on interrupt
-        await session_manager.stop_all_sessions()
+        return True
         
     except Exception as e:
-        logger.error(f"Main error: {e}")
+        logger.error(f"Recovery failed: {e}")
+        return False
+
+async def main():
+    try:
+        if not await recover_from_errors():
+            logger.critical("Could not recover from initialization errors")
+            sys.exit(1)
+            
+        # Initialize the bot
+        application = Application.builder().token(config.BOT_TOKEN).build()
+        
+        # Initialize MessageForwarder with proper channel ID
+        message_forwarder = MessageForwarder(config.PRIVATE_CHANNEL_ID)
+        
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help))
+        application.add_handler(CommandHandler("menu", menu))
+        application.add_handler(CommandHandler("migrate", start_migration))
+        application.add_handler(CommandHandler("process_group", process_group_command))
+        application.add_handler(CommandHandler("collect_contacts", handle_collect_contacts))
+        application.add_handler(CommandHandler("log_report", generate_log_report))
+        application.add_handler(MessageHandler(filters.TEXT, handle_message))
+        application.add_handler(CallbackQueryHandler(handle_callback_query))
+        
+        # Start the bot
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        await application.updater.idle()
+        
+    except Exception as e:
+        logger.critical(f"Bot startup failed: {e}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     asyncio.run(main())
