@@ -18,9 +18,9 @@ This project started as an idea to explore what's possible with Telegram bots. I
 ## 👨‍💻 Author & Learner
 **Temesgen Abdissa**
 - Learning Journey: Self-taught Python developer
-- Project Start Date: February 2024
+- Project Start Date:December 25, 2024 to February 13,2025 
 - LinkedIn: [Temesgen Abdissa](https://www.linkedin.com/in/temesgen-abdissa-06315a25a/)
-- Telegram: [@EmamuTalks](https://t.me/EmamuTalks)
+- Telegram: [@EMAMU_T](https://t.me/EMAMU_T)
 - Email: temesgenabdissa2@gmail.com
 
 ## 🎓 Learning Objectives
@@ -139,10 +139,11 @@ Let's learn and build together:
 
 Contact me at:
 - Email: temesgenabdissa2@gmail.com
-- Telegram: [@EmamuTalks](https://t.me/EmamuTalks)
-- Discussion Group: [@EmamuTalkschat](https://t.me/EmamuTalkschat)
+- Telegram: [@EMAMU_T](https://t.me/EMAMU_T)
+- Telegram Channel: [@EmamuTalks](https://t.me/EmamuTalks)
+- Discussion Group: [🇪🇹EMAMU DISCUSSION](https://t.me/EmamuTalkschat)
 
 ---
 🌱 This is a learning project in active development. Expect regular updates and improvements as I continue to learn and implement new features.
 
-Made with 💡 and 💻 by Temesgen Abdissa 
+## Made by :Temesgen Abdissa 
